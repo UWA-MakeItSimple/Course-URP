@@ -14,9 +14,10 @@ public class AutoLoadPiplineAsset : MonoBehaviour
 
     private void UpdatePiplineAsset()
     {
-        if(_UniversalRenderPipelineAsset)
+        if (_UniversalRenderPipelineAsset)
         {
             GraphicsSettings.renderPipelineAsset = _UniversalRenderPipelineAsset;
+            Debug.Log(_UniversalRenderPipelineAsset);
         }
     }
 }
