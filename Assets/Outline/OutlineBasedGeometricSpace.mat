@@ -20,7 +20,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Outline
+  m_Name: OutlineBasedGeometricSpace
   m_Shader: {fileID: 4800000, guid: 894761f80a02774499b8a8774336fac8, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
@@ -106,7 +106,7 @@ Material:
     - _Metallic: 0
     - _OcclusionStrength: 1
     - _Outline: 0.03
-    - _OutlineWidth: 0.03
+    - _OutlineWidth: 0.015
     - _Parallax: 0.005
     - _QueueOffset: 0
     - _ReceiveShadows: 1

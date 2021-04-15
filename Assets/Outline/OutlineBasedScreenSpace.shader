@@ -1,53 +1,121 @@
 Shader "UWA/OutlineBasedScreenSpace"
 {
-    Properties
-    {
-        _Color ("Color", Color) = (1,1,1,1)
-        _MainTex ("Albedo (RGB)", 2D) = "white" {}
-        _Glossiness ("Smoothness", Range(0,1)) = 0.5
-        _Metallic ("Metallic", Range(0,1)) = 0.0
-    }
-    SubShader
-    {
-        Tags { "RenderType"="Opaque" }
-        LOD 200
+	Properties
+	{
+		[HideInInspector]_MainTex("Base (RGB)", 2D) = "white" {}
+		_Delta("Line Thickness", Range(0.0005, 0.0025)) = 0.001
+		[Toggle(RAW_OUTLINE)]_Raw("Outline Only", Float) = 0
+		[Toggle(POSTERIZE)]_Poseterize("Posterize", Float) = 0
+		_PosterizationCount("Count", int) = 8
+	}
+		SubShader
+		{
+			Tags { "RenderType" = "Opaque" }
+			LOD 200
 
-        CGPROGRAM
-        // Physically based Standard lighting model, and enable shadows on all light types
-        #pragma surface surf Standard fullforwardshadows
+			Pass
+			{
+				Name "OutlineBasedScreenSpace"
+				HLSLPROGRAM
+				#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
+				#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 
-        // Use shader model 3.0 target, to get nicer looking lighting
-        #pragma target 3.0
+				#pragma shader_feature RAW_OUTLINE
+				#pragma shader_feature POSTERIZE
 
-        sampler2D _MainTex;
+				TEXTURE2D(_CameraDepthTexture);
+				SAMPLER(sampler_CameraDepthTexture);
 
-        struct Input
-        {
-            float2 uv_MainTex;
-        };
+	#ifndef RAW_OUTLINE
+				TEXTURE2D(_MainTex);
+				SAMPLER(sampler_MainTex);
+	#endif
+				float _Delta;
+				int _PosterizationCount;
 
-        half _Glossiness;
-        half _Metallic;
-        fixed4 _Color;
+				struct Attributes
+				{
+					float4 positionOS       : POSITION;
+					float2 uv               : TEXCOORD0;
+				};
 
-        // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
-        // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
-        // #pragma instancing_options assumeuniformscaling
-        UNITY_INSTANCING_BUFFER_START(Props)
-            // put more per-instance properties here
-        UNITY_INSTANCING_BUFFER_END(Props)
+				struct Varyings
+				{
+					float2 uv        : TEXCOORD0;
+					float4 vertex : SV_POSITION;
+					UNITY_VERTEX_OUTPUT_STEREO
+				};
 
-        void surf (Input IN, inout SurfaceOutputStandard o)
-        {
-            // Albedo comes from a texture tinted by color
-            fixed4 c = tex2D (_MainTex, IN.uv_MainTex) * _Color;
-            o.Albedo = c.rgb;
-            // Metallic and smoothness come from slider variables
-            o.Metallic = _Metallic;
-            o.Smoothness = _Glossiness;
-            o.Alpha = c.a;
-        }
-        ENDCG
-    }
-    FallBack "Diffuse"
+				float SampleDepth(float2 uv)
+				{
+	#if defined(UNITY_STEREO_INSTANCING_ENABLED) || defined(UNITY_STEREO_MULTIVIEW_ENABLED)
+					return SAMPLE_TEXTURE2D_ARRAY(_CameraDepthTexture, sampler_CameraDepthTexture, uv, unity_StereoEyeIndex).r;
+	#else
+					return SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_CameraDepthTexture, uv);
+	#endif
+				}
+
+				float sobel(float2 uv)
+				{
+					float2 delta = float2(_Delta, _Delta);
+
+					float hr = 0;
+					float vt = 0;
+
+					hr += SampleDepth(uv + float2(-1.0, -1.0) * delta) *  1.0;
+					hr += SampleDepth(uv + float2(1.0, -1.0) * delta) * -1.0;
+					hr += SampleDepth(uv + float2(-1.0,  0.0) * delta) *  2.0;
+					hr += SampleDepth(uv + float2(1.0,  0.0) * delta) * -2.0;
+					hr += SampleDepth(uv + float2(-1.0,  1.0) * delta) *  1.0;
+					hr += SampleDepth(uv + float2(1.0,  1.0) * delta) * -1.0;
+
+					vt += SampleDepth(uv + float2(-1.0, -1.0) * delta) *  1.0;
+					vt += SampleDepth(uv + float2(0.0, -1.0) * delta) *  2.0;
+					vt += SampleDepth(uv + float2(1.0, -1.0) * delta) *  1.0;
+					vt += SampleDepth(uv + float2(-1.0,  1.0) * delta) * -1.0;
+					vt += SampleDepth(uv + float2(0.0,  1.0) * delta) * -2.0;
+					vt += SampleDepth(uv + float2(1.0,  1.0) * delta) * -1.0;
+
+					return sqrt(hr * hr + vt * vt);
+				}
+
+				Varyings vert(Attributes input)
+				{
+					Varyings output = (Varyings)0;
+					UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+
+					VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
+					output.vertex = vertexInput.positionCS;
+					output.uv = input.uv;
+
+					return output;
+				}
+
+				half4 frag(Varyings input) : SV_Target
+				{
+					UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+					float s = pow(1 - saturate(sobel(input.uv)), 50);
+	#ifdef RAW_OUTLINE
+					return half4(s.xxx, 1);
+	#else
+					half4 col = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+	#ifdef POSTERIZE
+					col = pow(col, 0.4545);
+					float3 c = RgbToHsv(col);
+					c.z = round(c.z * _PosterizationCount) / _PosterizationCount;
+					col = float4(HsvToRgb(c), col.a);
+					col = pow(col, 2.2);
+	#endif
+					return col * s;
+	#endif
+				}
+
+				#pragma vertex vert
+				#pragma fragment frag
+
+				ENDHLSL
+			}
+		}
+			FallBack "Diffuse"
 }
