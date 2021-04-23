@@ -699,6 +699,8 @@ namespace UnityEngine.Rendering.Universal
                     colorDescriptor.useMipMap = false;
                     colorDescriptor.autoGenerateMips = false;
                     colorDescriptor.depthBufferBits = (useDepthRenderBuffer) ? k_DepthStencilBufferBits : 0;
+                    //≥¢ ‘…Ë÷√_CameraColorTextureŒ™Memeoryless
+                    colorDescriptor.memoryless = RenderTextureMemoryless.MSAA;
                     cmd.GetTemporaryRT(m_ActiveCameraColorAttachment.id, colorDescriptor, FilterMode.Bilinear);
                 }
 
