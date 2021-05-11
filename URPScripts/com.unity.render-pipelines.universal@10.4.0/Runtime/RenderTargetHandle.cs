@@ -66,6 +66,7 @@ namespace UnityEngine.Rendering.Universal
 
         public override bool Equals(object obj)
         {
+            //ReferenceEquals 判断两个引用类型对象是否指向同一地址
             if (ReferenceEquals(null, obj)) return false;
             return obj is RenderTargetHandle && Equals((RenderTargetHandle)obj);
         }

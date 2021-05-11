@@ -60,11 +60,12 @@ namespace UnityEngine.Rendering.Universal.Internal
             // NOTE: Do NOT mix ProfilingScope with named CommandBuffers i.e. CommandBufferPool.Get("name").
             // Currently there's an issue which results in mismatched markers.
             CommandBuffer cmd = CommandBufferPool.Get();
-            if (m_IsOpaque)
-            {
+            //if (m_IsOpaque)
+            //{
+                
+                //cmd.SetRenderTarget(renderingData.cameraData.targetTexture, RenderBufferLoadAction.Load, RenderBufferStoreAction.StoreAndResolve);
                 //cmd.SetRenderTarget(renderingData.cameraData.renderer.cameraColorTarget, RenderBufferLoadAction.Load, RenderBufferStoreAction.Resolve);
-                cmd.SetRenderTarget(renderingData.cameraData.renderer.cameraColorTarget, RenderBufferLoadAction.Load, RenderBufferStoreAction.StoreAndResolve);
-            }
+            //}
             using (new ProfilingScope(cmd, m_ProfilingSampler))
             {
                 // Global render pass data containing various settings.
